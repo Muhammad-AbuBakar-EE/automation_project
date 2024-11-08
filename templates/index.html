@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MQTT Relay Control</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f0f0f5; margin: 0; padding: 0; }
+        .container { max-width: 800px; margin: 50px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+        .header { text-align: center; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { font-size: 16px; }
+        .form-group select, .form-group input { width: 100%; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+        .btn { padding: 10px 20px; background-color: #4a90e2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .btn:disabled { background-color: #ccc; }
+        .messages { margin-top: 20px; padding: 10px; background-color: #e9ecef; border: 1px solid #ccc; border-radius: 4px; height: 200px; overflow-y: scroll; font-family: monospace; }
+        .message { padding: 5px; margin-bottom: 5px; background-color: #f8f9fa; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>MQTT Relay Control</h1>
+        </div>
+
+        <!-- Connect Form -->
+        <div class="form-group">
+            <label for="publish_topic">Publish Topic:</label>
+            <select id="publish_topic">
+                <option value="relay">relay</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="subscribe_topic">Subscribe Topic:</label>
+            <select id="subscribe_topic">
+                <option value="status">status</option>
+            </select>
+        </div>
+        <button class="btn" onclick="connectMQTT()">Connect</button>
+
+        <!-- Relay Control -->
+        <div class="form-group">
+            <label for="relay_id">Select Relay:</label>
+            <select id="relay_id">
+                <option value="1">Relay 1</option>
+                <option value="2">Relay 2</option>
+                <option value="3">Relay 3</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="duration">Select Duration:</label>
+            <select id="duration">
+                <option value="Immediate">Immediate</option>
+                <option value="5">5 min</option>
+                <option value="10">10 min</option>
+                <option value="15">15 min</option>
+                <option value="20">20 min</option>
+                <option value="25">25 min</option>
+                <option value="30">30 min</option>
+                <option value="35">35 min</option>
+                <option value="40">40 min</option>
+                <option value="45">45 min</option>
+                <option value="50">50 min</option>
+                <option value="55">55 min</option>
+                <option value="60">60 min</option>
+            </select>
+        </div>
+        <button class="btn" onclick="sendOn()">Turn On</button>
+        <button class="btn" onclick="sendOff()">Turn Off</button>
+
+        <!-- Schedule Task -->
+        <div class="form-group">
+            <label for="schedule_type">Schedule Type:</label>
+            <select id="schedule_type">
+                <option value="Daily">Daily</option>
+                <option value="One-Time">One-Time</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="start_time">Start Time:</label>
+            <input type="time" id="start_time">
+        </div>
+        <div class="form-group">
+            <label for="end_time">End Time:</label>
+            <input type="time" id="end_time">
+        </div>
+        <div class="form-group">
+            <label for="one_time_date">One-Time Date:</label>
+            <input type="date" id="one_time_date">
+        </div>
+        <button class="btn" onclick="scheduleTask()">Schedule Task</button>
+
+        <!-- Schedule Tasks -->
+        <div class="form-group">
+            <label for="schedule_relay_id">Select Relay to Schedule Tasks:</label>
+            <select id="schedule_relay_id">
+                <option value="1">Relay 1</option>
+                <option value="2">Relay 2</option>
+                <option value="3">Relay 3</option>
+            </select>
+        </div>
+        <button class="btn" onclick="scheduleTasks()">Tasks List</button>
+
+        <!-- Delete Schedule Task -->
+        <div class="form-group">
+            <label for="delete_schedule_relay_id">Select Relay to Delete Schedule:</label>
+            <select id="delete_schedule_relay_id">
+                <option value="1">Relay 1</option>
+                <option value="2">Relay 2</option>
+                <option value="3">Relay 3</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="delete_schedule_type">Schedule Type:</label>
+            <select id="delete_schedule_type">
+                <option value="daily">Daily</option>
+                <option value="one-time">One-Time</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="delete_start_time">Start Time:</label>
+            <input type="time" id="delete_start_time">
+        </div>
+        <button class="btn" onclick="deleteScheduleTask()">Delete Schedule</button>
+
+        <!-- Messages Display -->
+        <div class="messages" id="messages"></div>
+        <button id="clear_button">Clear Messages</button>
+
+    </div>
+
+    <script>
+        function connectMQTT() {
+            var publishTopic = document.getElementById('publish_topic').value;
+            var subscribeTopic = document.getElementById('subscribe_topic').value;
+    
+            fetch('/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ 'publish_topic': publishTopic, 'subscribe_topic': subscribeTopic }),
+            }).then(response => response.json()).then(data => alert(data.status));
+        }
+    
+        function sendOn() {
+            var relayId = document.getElementById('relay_id').value;
+            var duration = document.getElementById('duration').value;
+    
+            fetch('/send_on', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ 'relay_id': relayId, 'duration': duration }),
+            }).then(response => response.json()).then(data => alert(data.status));
+        }
+    
+        function sendOff() {
+            var relayId = document.getElementById('relay_id').value;
+    
+            fetch('/send_off', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ 'relay_id': relayId }),
+            }).then(response => response.json()).then(data => alert(data.status));
+        }
+    
+        function scheduleTask() {
+            var relayId = document.getElementById('relay_id').value;
+            var scheduleType = document.getElementById('schedule_type').value;
+            var startTime = document.getElementById('start_time').value;
+            var endTime = document.getElementById('end_time').value;
+            var oneTimeDate = document.getElementById('one_time_date').value;
+    
+            fetch('/schedule_task', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ 'relay_id': relayId, 'schedule_type': scheduleType, 'start_time': startTime, 'end_time': endTime, 'one_time_date': oneTimeDate }),
+            }).then(response => response.json()).then(data => alert(data.status));
+        }
+    
+        function scheduleTasks() {
+            var relayId = document.getElementById('schedule_relay_id').value;
+    
+            fetch('/schedule_tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ 'relay_id': relayId }),
+            }).then(response => response.json()).then(data => {
+                var messagesContainer = document.getElementById('messages');
+                messagesContainer.innerHTML = '';
+                data.tasks.forEach(task => {
+                    var message = document.createElement('div');
+                    message.classList.add('message');
+                    message.textContent = task;
+                    messagesContainer.appendChild(message);
+                });
+            });
+        }
+    
+        function deleteScheduleTask() {
+            var relayId = document.getElementById('delete_schedule_relay_id').value;
+            var scheduleType = document.getElementById('delete_schedule_type').value;
+            var startTime = document.getElementById('delete_start_time').value;
+    
+            fetch('/delete_schedule_task', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ 'relay_id': relayId, 'schedule_type': scheduleType, 'start_time': startTime }),
+            }).then(response => response.json()).then(data => alert(data.status));
+        }
+    
+        // Function to fetch and update messages from the Flask backend
+        function fetchMessages() {
+            fetch('/get_messages')
+                .then(response => response.json())
+                .then(data => {
+                    var messagesContainer = document.getElementById('messages');
+                    messagesContainer.innerHTML = '';  // Clear existing messages
+    
+                    // Add each message from the server to the display
+                    data.messages.forEach(msg => {
+                        var message = document.createElement('div');
+                        message.classList.add('message');
+                        message.textContent = msg;
+                        messagesContainer.appendChild(message);
+                    });
+    
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;  // Scroll to the bottom
+                })
+                .catch(error => console.error('Error fetching messages:', error));
+        }
+    
+        // Fetch messages every 3 seconds (or adjust as needed)
+        setInterval(fetchMessages, 1000);  // Fetch messages every 3 seconds
+
+        // Function to clear messages from the Flask backend
+        function clearMessages() {
+            fetch('/clear_messages', {
+                method: 'POST'
+            }).then(response => response.json())
+            .then(data => {
+                if (data.status === "Messages cleared") {
+                    var messagesContainer = document.getElementById('messages');
+                    messagesContainer.innerHTML = '';  // Clear the messages on the frontend
+                }
+                alert(data.status);  // Show a confirmation alert
+            })
+            .catch(error => console.error('Error clearing messages:', error));
+        }
+
+        // You can call clearMessages() when a button is clicked, for example:
+        document.getElementById('clear_button').addEventListener('click', clearMessages);
+    </script>    
+</body>
+</html>
