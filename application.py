@@ -8,6 +8,10 @@ app = Flask(__name__)
 # Initialize MQTT client
 mqtt_client = mqtt.Client()
 
+# Track the number of active connections
+active_clients = 0
+MAX_CLIENTS = 2  # Maximum number of allowed clients
+
 # MQTT settings
 MQTT_BROKER = "192.168.10.6"  # Change as needed
 MQTT_PORT = 1883  # Standard port for MQTT
@@ -23,11 +27,23 @@ def on_message(client, userdata, message):
     # Optionally, print the message to the console or log it
     print(msg)
 
+# Middleware to limit the number of active clients
+@app.before_request
+def limit_clients():
+    global active_clients
+    if active_clients >= MAX_CLIENTS:
+        return jsonify(status="Too many clients connected, try again later."), 429
+
 # Connect to MQTT broker
 @app.route('/connect', methods=['POST'])
 def connect_mqtt():
+    global active_clients
+    if mqtt_client.is_connected():  # Check if already connected
+        return jsonify(status="Already connected to MQTT broker"), 400
+
     publish_topic = request.form['publish_topic']
     subscribe_topic = request.form['subscribe_topic']
+
     try:
         mqtt_client.on_message = on_message  # Assign the on_message function as the callback
         mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
@@ -35,6 +51,9 @@ def connect_mqtt():
 
         # Start the MQTT client loop in a separate thread to handle incoming messages asynchronously
         threading.Thread(target=mqtt_client.loop_start).start()
+
+        # Increment the active clients count upon successful connection
+        active_clients += 1
 
         return jsonify(status="Connected to MQTT broker")
     except Exception as e:
@@ -124,10 +143,17 @@ def schedule_tasks():
     mqtt_client.publish("relay", command)
     return jsonify(status=f"Scheduled tasks for Relay {relay_id}")
 
+# Middleware to handle client disconnects
+@app.after_request
+def decrement_client_count(response):
+    global active_clients
+    # Reduce active clients when a response is sent
+    if response.status_code == 200:
+        active_clients = max(0, active_clients - 1)
+    return response
+
 # if __name__ == '__main__':
 #     app.run(debug=True)
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
-
-
 
