@@ -58,6 +58,21 @@ def connect_mqtt():
         return jsonify(status="Connected to MQTT broker")
     except Exception as e:
         return jsonify(status=f"Failed to connect: {str(e)}"), 500
+    
+# Disconnect from MQTT broker
+@app.route('/disconnect', methods=['POST'])
+def disconnect_mqtt():
+    global active_clients
+    try:
+        mqtt_client.loop_stop()  # Stop the MQTT client loop
+        mqtt_client.disconnect()  # Disconnect from the broker
+
+        # Decrement the active clients count upon successful disconnection
+        active_clients = max(0, active_clients - 1)
+
+        return jsonify(status="Disconnected from MQTT broker")
+    except Exception as e:
+        return jsonify(status=f"Failed to disconnect: {str(e)}"), 500
 
 # Root route to display the page (index.html)
 @app.route('/')
