@@ -249,6 +249,13 @@
 
         // You can call clearMessages() when a button is clicked, for example:
         document.getElementById('clear_button').addEventListener('click', clearMessages);
+
+        function disconnect() {
+            fetch('/disconnect', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => alert(data.status))  // Alert the disconnection status
+                .catch(error => console.error('Error:', error));
+        }    
     </script>    
 </body>
 </html>
